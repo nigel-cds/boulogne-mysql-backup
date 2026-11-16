@@ -38,6 +38,24 @@ for tool in mysql mysqldump; do
         log "ERROR: missing $MYSQL_BIN/$tool; edit MYSQL_BIN in script."; exit 1
     fi
 done
+
+log 'Waiting for MySQL to become ready...'
+MYSQL_WAIT_DEADLINE=$((SECONDS + 300))
+while ! "$MYSQL_BIN/mysql" --no-defaults \
+    --login-path="$LOGIN_PATH" \
+    --protocol=TCP --host=127.0.0.1 --port=3306 \
+    --connect-timeout=5 \
+    --batch --skip-column-names \
+    --execute='SELECT 1;' >/dev/null 2>&1
+do
+    if [ "$SECONDS" -ge "$MYSQL_WAIT_DEADLINE" ]; then
+        log 'ERROR: MySQL connection unavailable after approximately five minutes; backup cancelled.'
+        exit 1
+    fi
+    /bin/sleep 10
+done
+log 'MySQL connection ready; proceeding with backups.'
+
 STAMP=$(/bin/date +%Y-%m-%d_%H%M%S)_$$
 for DB in stream bloom; do
     DIR="$BASE/$DB"
