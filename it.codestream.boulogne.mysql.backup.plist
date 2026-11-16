@@ -35,5 +35,7 @@
 	<string>/var/log/codestream/mysql/launchd.log</string>
 	<key>RunAtLoad</key>
 	<true/>
+	<key>GroupName</key>
+	<string>server_accounts</string>
 </dict>
 </plist>

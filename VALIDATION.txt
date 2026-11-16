@@ -16,3 +16,12 @@ bypassed only in the isolated test copy. The installed script enforces user back
 No account was created and no command was run on boulogne. Catalina runtime,
 actual account permissions, MySQL access and real restoration still require testing.
 Startup runs may fail if MySQL has not yet become ready; see README.md.
+
+UID/group revision:
+PASS: mocked new-account setup assigns UID 552, primary GID 501 and explicit
+      server_accounts membership without creating a group.
+PASS: occupied UID, wrong GID, missing group and existing account all stop before writes.
+PASS: plist GroupName explicitly selects server_accounts.
+The existing MySQL-readiness loop from GitHub is preserved in this package.
+Account tests substitute all directory-service and installation commands; no real
+account, group or filesystem ownership was changed.

@@ -1,30 +1,32 @@
 #!/bin/bash
-# Optional one-time account creation on boulogne. Review before running as root.
-# Refuses existing accounts/groups; never changes an existing account's rights.
+# Optional one-time creation on boulogne. Review before running as root.
+# Requires existing local server_accounts group, GID 501. Does not migrate UIDs.
 set -eu
 [ "$(/usr/bin/id -u)" -eq 0 ] || { echo 'Run with sudo.' >&2; exit 1; }
+GROUP_RECORD=$(/usr/bin/dscl . -read /Groups/server_accounts PrimaryGroupID) || {
+    echo 'Required local group server_accounts is missing.' >&2; exit 1;
+}
+[ "$GROUP_RECORD" = 'PrimaryGroupID: 501' ] || {
+    echo 'server_accounts must have GID 501. No changes made.' >&2; exit 1;
+}
+UID_RECORDS=$(/usr/bin/dscl . -search /Users UniqueID 552) || exit 1
 if /usr/bin/dscl . -read /Users/backup >/dev/null 2>&1; then
-    echo 'backup already exists. Inspect its rights and home; follow README instead.' >&2; exit 1
+    echo 'backup already exists. Verify UID 552 and GID 501; see README for migration.' >&2; exit 1
 fi
-if /usr/bin/dscl . -read /Groups/codestream-backup >/dev/null 2>&1; then
-    echo 'codestream-backup group already exists. Inspect before proceeding manually.' >&2; exit 1
-fi
-# Allocate an unused ID in each namespace. Run without concurrent account creation.
-uid=5000
-while /usr/bin/dscl . -search /Users UniqueID "$uid" | /usr/bin/grep -q .; do uid=$((uid+1)); done
-gid=5000
-while /usr/bin/dscl . -search /Groups PrimaryGroupID "$gid" | /usr/bin/grep -q .; do gid=$((gid+1)); done
-/usr/bin/dscl . -create /Groups/codestream-backup
-/usr/bin/dscl . -create /Groups/codestream-backup PrimaryGroupID "$gid"
-/usr/bin/dscl . -create /Groups/codestream-backup Password '*'
+[ -z "$UID_RECORDS" ] || {
+    echo 'UID 552 is already assigned. No changes made.' >&2; exit 1;
+}
+# Run without concurrent account creation. Do not alter the shared group permissions.
 /usr/bin/dscl . -create /Users/backup
-/usr/bin/dscl . -create /Users/backup UniqueID "$uid"
-/usr/bin/dscl . -create /Users/backup PrimaryGroupID "$gid"
+/usr/bin/dscl . -create /Users/backup UniqueID 552
+/usr/bin/dscl . -create /Users/backup PrimaryGroupID 501
 /usr/bin/dscl . -create /Users/backup RealName 'CodeStream MySQL Backup'
 /usr/bin/dscl . -create /Users/backup NFSHomeDirectory /var/lib/codestream-backup
 /usr/bin/dscl . -create /Users/backup UserShell /usr/bin/false
 /usr/bin/dscl . -create /Users/backup Password '*'
 /usr/bin/dscl . -create /Users/backup IsHidden 1
+/usr/sbin/dseditgroup -o edit -a backup -t user server_accounts
 /usr/bin/install -d -o root -g wheel -m 755 /var/lib
-/usr/bin/install -d -o backup -g codestream-backup -m 700 /var/lib/codestream-backup
-echo 'Created hidden backup account with disabled password and non-login shell. No admin or sudo rights granted.'
+/usr/bin/install -d -o backup -g server_accounts -m 700 /var/lib/codestream-backup
+/usr/bin/id backup
+echo 'Created hidden backup: UID 552, primary GID 501 (server_accounts), disabled password and non-login shell.'

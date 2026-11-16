@@ -36,7 +36,7 @@ If `backup` does not exist, review and run the supplied optional account-creatio
 sudo /bin/bash setup-backup-account.sh
 ```
 
-It creates a hidden local account with a disabled password, `/usr/bin/false` shell, private home `/var/lib/codestream-backup`, and a dedicated `codestream-backup` primary group. It allocates unused IDs starting at 5000, and refuses to modify an existing account/group. Run without concurrent account creation. If interrupted, inspect partially created records before retrying.
+It creates a hidden local account with a disabled password, `/usr/bin/false` shell, private home `/var/lib/codestream-backup`, UID **552**, and the existing **server_accounts** primary group (GID **501**). It also adds explicit membership in that group. It verifies the group ID and refuses an occupied UID or an existing backup account; it does not create or modify the shared group identity. Run without concurrent account creation. If interrupted, inspect partially created records before retrying.
 
 If `backup` already exists, inspect it first:
 
@@ -45,9 +45,31 @@ id backup
 dscl . -read /Users/backup UniqueID PrimaryGroupID NFSHomeDirectory UserShell
 ```
 
-Do not repurpose an administrator or shared interactive account. Ensure it has no admin membership or sudo rules. The package uses `/var/lib/codestream-backup` explicitly for credential lookup, even for an existing account with another home. A non-login shell does not prevent launchd or an administrator using `sudo -u backup` from running these explicit programs. For an existing account use its actual primary group when creating private directories (commands below derive it).
+Do not repurpose an administrator or shared interactive account. Ensure it has no admin membership or sudo rules. The package uses `/var/lib/codestream-backup` explicitly for credential lookup, even for an existing account with another home. A non-login shell does not prevent launchd or an administrator using `sudo -u backup` from running these explicit programs. For an existing account, verify or migrate it to UID 552 and primary GID 501 before continuing. Commands below derive its primary group after this check. Shared group membership also grants access to any resources already accessible to server_accounts; private backup directories stay mode 700 and dumps mode 600.
 
 If migrating an installed earlier version, stop the old daemon and wait for any backup to finish before replacing the script or changing ownership (see the old-daemon commands in step 5).
+
+### Migrating an existing backup account
+
+Stop the backup daemon and ensure no backup processes remain before changing its UID. First inspect the records:
+
+```sh
+dscl . -search /Users UniqueID 552
+dscl . -read /Groups/server_accounts PrimaryGroupID
+id backup
+```
+
+The UID search must be empty or show only backup. The group must report PrimaryGroupID: 501. Do not continue if another user owns UID 552 or the group differs. For network/mobile accounts, use the directory administrator rather than these local-account commands. For a dedicated local backup account, after checking:
+
+```sh
+sudo dscl . -create /Users/backup UniqueID 552
+sudo dscl . -create /Users/backup PrimaryGroupID 501
+sudo dseditgroup -o edit -a backup -t user server_accounts
+sudo chown -R backup:server_accounts /var/lib/codestream-backup /usr/local/backups/mysql /var/log/codestream/mysql
+id backup
+```
+
+Only include existing directories in the chown command, and inspect them for symlinks first. Changing a UID does not update existing file ownership; inspect any other files formerly owned by this dedicated account and migrate their ownership as appropriate. Do not change ownership across the whole filesystem. Keep the account non-administrative. Expected id output begins uid=552(backup) gid=501(server_accounts). Reload the updated plist after verifying ownership and credentials.
 
 From the extracted package directory:
 
@@ -180,7 +202,7 @@ Repeat with the selected `bloom` SQL file. Do not use mysql `--force`. Stop and 
 
 5. Compare table/view, routine, trigger and event inventories to the source; check important row counts, representative data and application read/write behavior. Test stored program execution with appropriate accounts. Re-enable events deliberately only after reviewing their effects. Keep an audit of the rehearsal and periodically repeat it.
 
-Startup execution assumes MySQL is already available. If MySQL starts later, this run logs a connection failure; the next 11:30 run or a manual kickstart retries. RunAtLoad is not a dependency or readiness check.
+The backup script waits for a successful MySQL SELECT 1 connection, retrying every 10 seconds for approximately five minutes. If readiness does not arrive, it logs an error and exits; the daily schedule or a manual kickstart can retry later.
 
 These are logical database backups, not full server disaster-recovery images. They omit users/grants, plugins/UDF binaries, server configuration, binary logs and point-in-time recovery. Each database has its own transaction snapshot; the two files are not a single coordinated snapshot. Avoid schema changes (ALTER/CREATE/DROP/RENAME/TRUNCATE) during backup. InnoDB snapshots protect table data from concurrent DML, but do not provide a fully consistent snapshot of concurrent metadata changes.
 
@@ -196,4 +218,5 @@ Failures are recorded and return nonzero; the package provides no automatic noti
 
 - MySQL 8.0 mysqldump options, privileges, snapshot and restore limitations: https://dev.mysql.com/doc/refman/8.0/en/mysqldump.html
 - MySQL login-path credential storage: https://dev.mysql.com/doc/refman/8.0/en/mysql-config-editor.html
+- Apple account management reference: https://www.apple.com/server/docs/Command_Line_v10.4_2nd_Ed.pdf
 - Apple launchd calendar scheduling: https://github.com/apple-oss-distributions/launchd/blob/main/man/launchd.plist.5
