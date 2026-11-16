@@ -1,0 +1,16 @@
+Package validation
+
+PASS: shell syntax checked with Apple /bin/bash 3.2.57.
+PASS: plist syntax checked with plutil; parsed schedule is daily 11:30.
+PASS: isolated mock run creates separate gzip archives for both databases.
+PASS: mock stream dump failure still permits bloom success.
+PASS: mock bloom dump failure preserves stream success.
+PASS: mock non-InnoDB stream table blocks stream and permits bloom.
+PASS: existing lock prevents an overlapping run with nonzero status.
+PASS: success prunes 31-day-old matching dumps; failure retains old dumps.
+PASS: failed dumps leave no published partial archive in tested scenarios.
+
+Mocks used temporary local directories and substituted MySQL tools. No connection
+was made to boulogne. No software, credentials or launchd job was installed there.
+Actual Catalina execution, real MySQL privileges, inventories and end-to-end
+restoration must be verified on the intended systems using README.md.
