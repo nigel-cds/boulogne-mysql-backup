@@ -1,0 +1,18 @@
+# Database contents and incomplete dumps
+stream_*.sql
+bloom_*.sql
+*.sql.gz
+*.sql.gz.*
+*.partial.*
+backups/
+# Local credentials and private configuration
+.mylogin.cnf
+.my.cnf
+.env
+.env.*
+*.pem
+*.key
+# Operational files
+*.log
+.backup.lock/
+.DS_Store

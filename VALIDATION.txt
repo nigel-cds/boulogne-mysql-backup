@@ -1,16 +1,18 @@
-Package validation
+Revised package validation
 
-PASS: shell syntax checked with Apple /bin/bash 3.2.57.
-PASS: plist syntax checked with plutil; parsed schedule is daily 11:30.
-PASS: isolated mock run creates separate gzip archives for both databases.
-PASS: mock stream dump failure still permits bloom success.
-PASS: mock bloom dump failure preserves stream success.
-PASS: mock non-InnoDB stream table blocks stream and permits bloom.
-PASS: existing lock prevents an overlapping run with nonzero status.
-PASS: success prunes 31-day-old matching dumps; failure retains old dumps.
-PASS: failed dumps leave no published partial archive in tested scenarios.
+PASS: backup script and account-creation script syntax checked with Apple Bash 3.2.
+PASS: plist validated by plutil; label it.codestream.boulogne.mysql.backup.
+PASS: plist specifies backup user, daily 11:30, RunAtLoad and private credential HOME.
+PASS: application and launchd log paths are under /var/log/codestream/mysql.
+PASS: isolated mock runs produce separate nonempty plain SQL dumps.
+PASS: stream dump failure still attempts bloom; bloom failure preserves stream success.
+PASS: non-InnoDB preflight rejects stream while still attempting bloom.
+PASS: existing lock rejects overlapping execution.
+PASS: successful dump prunes 31-day-old matching SQL files; failed dump retains them.
+PASS: tested failures leave no published partial SQL file.
 
-Mocks used temporary local directories and substituted MySQL tools. No connection
-was made to boulogne. No software, credentials or launchd job was installed there.
-Actual Catalina execution, real MySQL privileges, inventories and end-to-end
-restoration must be verified on the intended systems using README.md.
+Tests substituted MySQL clients and temporary paths; the service identity check was
+bypassed only in the isolated test copy. The installed script enforces user backup.
+No account was created and no command was run on boulogne. Catalina runtime,
+actual account permissions, MySQL access and real restoration still require testing.
+Startup runs may fail if MySQL has not yet become ready; see README.md.
